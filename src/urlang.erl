@@ -1,13 +1,9 @@
-%%% File    : test_tcp_accept.erl
+%%% File    : urlang.erl
 %%% Author  : Tim Bielawa <timbielawa@gmail.com>
-%%% Description : Testing a simple server listening on socket.
-%%% Created : 14 Dec 2009 by Tim Bielawa <timbielawa@gmail.com>
-%%% Based off the example code for gen_tcp online,
-%%% modified to accept simultaneous connections.
-%%%
-%%% Source: http://www.erlang.org/doc/man/gen_tcp.html
+%%% Description : URL Shortener
+%%% Created : 22 Feb 2011 by Tim Bielawa <timbielawa@gmail.com>
 
--module(test_tcp_accept).
+-module(urlang).
 -export([start/0]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
