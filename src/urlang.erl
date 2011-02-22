@@ -55,8 +55,9 @@ get_packets() ->
 	{ok, Pkt, Sock} ->
 	    Request = binary:bin_to_list(Pkt),
 	    case string:tokens(Request, " ") of
-		[Method, Resource] ->
+		[Method, Resource|_] ->
 		    %% TODO: Validate Method, POST/GET
+		    io:format("They requested: ~p~n", [Request]),
 		    io:format("Request type: ~p~nResource requested:~p~n", [Method, Resource]),
 		    io:format("MSG: Responding to connection~n"),
 		    %% TODO: Add a function to handle lookups
@@ -64,7 +65,10 @@ get_packets() ->
 		    gen_tcp:send(Sock, "HTTP/1.1 301 Moved Permanently\r\nLocation: http://csee.wvu.edu\r\nContent-type: text/html\r\nContent-Length: 0\r\nConnection: close\r\nServer: urlang/0.1\r\n\r\n"),
 		    gen_tcp:close(Sock);
 		_ ->
-		    io:format("Couldn't tokenize~n")
+		    io:format("Couldn't tokenize~n"),
+		    io:format("They requested: ~p~n", [Request]),
+		    gen_tcp:send(Sock, "HTTP/1.1 301 Moved Permanently\r\nLocation: http://google.com\r\nContent-type: text/html\r\nContent-Length: 0\r\nConnection: close\r\nServer: urlang/0.1\r\n\r\n"),
+		    gen_tcp:close(Sock)
 	    end;
 	{done} ->
 	    io:format("MSG: Connection closed~n")
