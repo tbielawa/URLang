@@ -1,0 +1,2 @@
+
+-record(tinyurl, {long, short}).

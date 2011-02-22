@@ -5,6 +5,7 @@
 
 -module(urlang).
 -export([start/0]).
+-include_lib("records.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 start() ->
@@ -53,26 +54,35 @@ get_packets() ->
     io:format("get_packets() waiting...~n"),
     receive
 	{ok, Pkt, Sock} ->
-	    Request = binary:bin_to_list(Pkt),
+	    Request = parse_request(Pkt),
 	    case string:tokens(Request, " ") of
-		[Method, Resource|_] ->
-		    %% TODO: Validate Method, POST/GET
-		    io:format("They requested: ~p~n", [Request]),
-		    io:format("Request type: ~p~nResource requested:~p~n", [Method, Resource]),
-		    io:format("MSG: Responding to connection~n"),
-		    %% TODO: Add a function to handle lookups
-		    %% Should accept Resource, Socket
-		    gen_tcp:send(Sock, "HTTP/1.1 301 Moved Permanently\r\nLocation: http://csee.wvu.edu\r\nContent-type: text/html\r\nContent-Length: 0\r\nConnection: close\r\nServer: urlang/0.1\r\n\r\n"),
-		    gen_tcp:close(Sock);
+		["GET", Resource |_] -> 
+		    handle_request(Resource, Sock);
 		_ ->
-		    io:format("Couldn't tokenize~n"),
-		    io:format("They requested: ~p~n", [Request]),
-		    gen_tcp:send(Sock, "HTTP/1.1 301 Moved Permanently\r\nLocation: http://google.com\r\nContent-type: text/html\r\nContent-Length: 0\r\nConnection: close\r\nServer: urlang/0.1\r\n\r\n"),
-		    gen_tcp:close(Sock)
+		    close_conn_failure(Sock, Request)
 	    end;
 	{done} ->
 	    io:format("MSG: Connection closed~n")
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+parse_request(Request) ->
+    Strreq = binary:bin_to_list(Request),
+    [Method|_] = [string:strip(X) || X <- string:tokens(Strreq, "\r\n")],
+    %% case string:tokens(Method, " ") of
+    %% 	["GET", Resource, Version] ->
+    %% 	    io:format("MSG: parse_request found Resource/Version: ~p/~p~n", [Resource, Version]);
+    %% 	_ ->
+    %% 	    io:format("MSG: parse_request has no idea whats going on~n")
+    %% end,
+    Method.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+close_conn_failure(Sock, Request) ->
+    io:format("Couldn't tokenize!~n"),
+    io:format("HTTP Headers Sent To Us: ~p~n", [Request]),
+    gen_tcp:send(Sock, "HTTP/1.1 500 Internal Service Error\r\nContent-type: text/html\r\nContent-Length: 0\r\nConnection: close\r\nServer: urlang/0.1\r\n\r\n"),
+    gen_tcp:close(Sock).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 do_recv(PPid, Sock) ->
@@ -85,4 +95,12 @@ do_recv(PPid, Sock) ->
 	    ok = gen_tcp:close(Sock),
 	    PPid ! {done}
     end.
-    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+handle_request(Resource, Sock) ->
+    io:format("Resource requested: ~p~n", [Resource]),
+    %% TODO: Add a function to handle lookups
+    gen_tcp:send(Sock, "HTTP/1.1 301 Moved Permanently\r\nLocation: http://csee.wvu.edu\r\nContent-type: text/html\r\nContent-Length: 0\r\nConnection: close\r\nServer: urlang/0.1\r\n\r\n"),
+    gen_tcp:close(Sock).
+
+
