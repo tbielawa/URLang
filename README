@@ -1,0 +1,37 @@
+		   URLANG - An Erlang URL Shortener
+		   ================================
+
+Author: Tim Bielawa <timbielawa@gmail.com>
+
+Attempt at making an Erlang based URL shortening service.
+
+
+Simple setup
+============
+
+So far I've only ran this on a server that already had a web server
+running. I got another short domain name to use for the future
+shortener and set up a simple reverse proxy in Apache like this:
+
+    <VirtualHost lnx.cx:80>
+        ServerName lnx.cx
+        ServerAdmin timbielawa@gmail.com
+    
+        DirectoryIndex index.html index.php index.htm
+        DocumentRoot /var/www/lnx.cx
+        
+        ProxyRequests off
+        ProxyPass / http://localhost:5678/
+        ProxyPassReverse / http://localhost:5678/
+    </VirtualHost>
+
+Once the proxy is set up just go into the src direction and run
+`make`, then `make run`.
+
+
+Limitations
+===========
+
+This not complete. URLs are hard coded into the source code. There is
+no other way of adding new URLs at this time.
+

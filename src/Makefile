@@ -2,20 +2,14 @@
 #Template Makefile especially suited for Erlang directories
 
 SHELL = /bin/sh
-OSTYPE := $(shell /bin/uname -s)
 INITMOD = urlang
 INITFUNC = init
 #INITARGS = []
 
-# OS X?
-ifeq ("$(findstring Darwin, $(OSTYPE))", "Darwin")
-	SED = sed -E
-	FIND = find -E
 # Assume GNU
-else
-	SED = sed -r
-	FIND = find . -regextype posix-extended
-endif
+SED = sed -r
+FIND = find . -regextype posix-extended
+
 
 all:
 	$(FIND) -name "*.erl" -exec erlc '{}' \;
