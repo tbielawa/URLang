@@ -60,7 +60,7 @@ url_store() ->
     Test2 = #tinyurl{long="http://afrolegs.com", short="2"},
     Test3 = #tinyurl{long="http://tektosterone.com", short="3"},
     Test4 = #tinyurl{long="http://www.rhussmann.com", short="4"},
-    url_store([Test1, Test2, Test3, Test4], 3).
+    url_store([Test1, Test2, Test3, Test4], 4).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 start(Port, {attempt, Attempt}) ->
