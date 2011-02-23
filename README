@@ -8,7 +8,6 @@ Attempt at making an Erlang based URL shortening service.
 
 Simple setup
 ============
-
 So far I've only ran this on a server that already had a web server
 running. I got another short domain name to use for the future
 shortener and set up a simple reverse proxy in Apache like this:
@@ -25,13 +24,19 @@ shortener and set up a simple reverse proxy in Apache like this:
         ProxyPassReverse / http://localhost:5678/
     </VirtualHost>
 
-Once the proxy is set up just go into the src direction and run
+Once the proxy is set up just go into the src directory and run
 `make`, then `make run`.
 
 
 Limitations
 ===========
-
 This not complete. URLs are hard coded into the source code. There is
 no other way of adding new URLs at this time.
+
+
+TODO
+====
+ - Integrate a Mnesia database to enable persistence.
+
+ - Add ability to store new URLs
 
