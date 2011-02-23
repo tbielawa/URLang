@@ -4,7 +4,7 @@
 SHELL = /bin/sh
 OSTYPE := $(shell /bin/uname -s)
 INITMOD = urlang
-INITFUNC = start
+INITFUNC = init
 #INITARGS = []
 
 # OS X?
@@ -29,5 +29,8 @@ distclean: clean
 
 run:
 	erl -noshell -s $(INITMOD) $(INITFUNC) -pa $(CURDIR)
+
+run2:
+	erl -s $(INITMOD) $(INITFUNC) -pa $(CURDIR)
 
 .PHONY : clean distclean all run

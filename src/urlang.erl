@@ -4,12 +4,41 @@
 %%% Created : 22 Feb 2011 by Tim Bielawa <timbielawa@gmail.com>
 
 -module(urlang).
--export([start/0]).
+-export([init/0,url_store/0]).
 -include_lib("records.hrl").
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+init() ->
+    register(url_cache, spawn(fun() -> url_store() end)),
+    start().
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 start() ->
     start(5678, {attempt, 1}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+url_store(State, Max) ->
+    receive
+	{store, Longurl} ->
+	    io:format("Storing a new URL~n"),
+	    url_store([#tinyurl{long=Longurl, short=(Max + 1)}|State], (Max + 1));
+	{recall, Caller, Hash} ->
+	    io:format("Recalling a stored URL: ~p~n", [Hash]),
+	    Results = [X#tinyurl.long || X <- State, string:equal(X#tinyurl.short, Hash)],
+	    case length(Results) of
+		1 ->
+		    [Longurl] = Results,
+		    Caller ! {ok, Longurl};
+		_ ->
+		    Caller ! {fail}
+	    end,
+	    url_store(State, Max)
+    end.
+url_store() ->
+    Test1 = #tinyurl{long="http://peopleareducks.com", short="1"},
+    Test2 = #tinyurl{long="http://afrolegs.com", short="2"},
+    Test3 = #tinyurl{long="http://tektosterone.com", short="3"},
+    url_store([Test1, Test2, Test3], 3).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 start(Port, {attempt, Attempt}) ->
@@ -50,41 +79,6 @@ retry_listener(Port, {attempt, Attempt}) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_packets() ->
-    io:format("get_packets() waiting...~n"),
-    receive
-	{ok, Pkt, Sock} ->
-	    Request = parse_request(Pkt),
-	    case string:tokens(Request, " ") of
-		["GET", Resource |_] -> 
-		    handle_request(Resource, Sock);
-		_ ->
-		    close_conn_failure(Sock, Request)
-	    end;
-	{done} ->
-	    io:format("MSG: Connection closed~n")
-    end.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-parse_request(Request) ->
-    Strreq = binary:bin_to_list(Request),
-    [Method|_] = [string:strip(X) || X <- string:tokens(Strreq, "\r\n")],
-    %% case string:tokens(Method, " ") of
-    %% 	["GET", Resource, Version] ->
-    %% 	    io:format("MSG: parse_request found Resource/Version: ~p/~p~n", [Resource, Version]);
-    %% 	_ ->
-    %% 	    io:format("MSG: parse_request has no idea whats going on~n")
-    %% end,
-    Method.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-close_conn_failure(Sock, Request) ->
-    io:format("Couldn't tokenize!~n"),
-    io:format("HTTP Headers Sent To Us: ~p~n", [Request]),
-    gen_tcp:send(Sock, "HTTP/1.1 500 Internal Service Error\r\nContent-type: text/html\r\nContent-Length: 0\r\nConnection: close\r\nServer: urlang/0.1\r\n\r\n"),
-    gen_tcp:close(Sock).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 do_recv(PPid, Sock) ->
     case gen_tcp:recv(Sock, 0) of
 	{ok, B} ->
@@ -97,10 +91,56 @@ do_recv(PPid, Sock) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-handle_request(Resource, Sock) ->
-    io:format("Resource requested: ~p~n", [Resource]),
-    %% TODO: Add a function to handle lookups
-    gen_tcp:send(Sock, "HTTP/1.1 301 Moved Permanently\r\nLocation: http://csee.wvu.edu\r\nContent-type: text/html\r\nContent-Length: 0\r\nConnection: close\r\nServer: urlang/0.1\r\n\r\n"),
+get_packets() ->
+    io:format("get_packets() waiting...~n"),
+    receive
+	{ok, Pkt, Sock} ->
+	    Request = parse_request(Pkt),
+	    case string:tokens(Request, " ") of
+		["GET", Resource |_] -> 
+		    handle_request(strip_leading_slash(Resource), Sock);
+		_ ->
+		    close_conn_failure(Sock)
+	    end;
+	{done} ->
+	    io:format("MSG: Connection closed~n")
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+parse_request(Request) ->
+    Strreq = binary:bin_to_list(Request),
+    [Method|_] = [string:strip(X) || X <- string:tokens(Strreq, "\r\n")],
+    Method.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+strip_leading_slash(Astring) ->
+    [_|Rest] = Astring,
+    Rest.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+close_conn_failure(Sock) ->
+    gen_tcp:send(Sock, "HTTP/1.1 500 Internal Service Error\r\nContent-type: text/html\r\nContent-Length: 0\r\nConnection: close\r\nServer: urlang/0.1\r\n\r\n"),
     gen_tcp:close(Sock).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+close_conn_not_found(Sock) ->
+    io:format("Uncached Resource Requested~n"),
+    gen_tcp:send(Sock, "HTTP/1.1 404 Short URL Not Found\r\nContent-type: text/html\r\nContent-Length: 0\r\nConnection: close\r\nServer: urlang/0.1\r\n\r\n"),
+    gen_tcp:close(Sock).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+close_conn_forward(Longurl, Sock) ->
+    Headers = string:join(["HTTP/1.1 301 Moved Permanently\r\nLocation: ", Longurl, "\r\nContent-type: text/html\r\nContent-Length: 0\r\nConnection: close\r\nServer: urlang/0.1\r\n\r\n"], ""),
+    gen_tcp:send(Sock, Headers),
+    gen_tcp:close(Sock).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+handle_request(Resource, Sock) ->
+    io:format("Resource requested: ~p~n", [Resource]),
+    url_cache ! {recall, self(), Resource},
+    receive
+	{ok, Longurl} ->
+	    close_conn_forward(Longurl, Sock);
+	{fail} ->
+	    close_conn_not_found(Sock)
+    end.
